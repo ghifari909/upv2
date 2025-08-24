@@ -1,7 +1,7 @@
 // pages/api/preview.js
 export const config = {
   api: {
-    bodyParser: false,
+    bodyParser: false, // kita streaming, bukan JSON
   },
 };
 
@@ -29,11 +29,13 @@ export default async function handler(req, res) {
       return res.status(ghRes.status).json({ error: "File not found di GitHub" });
     }
 
+    // deteksi MIME type berdasarkan ekstensi
     const contentType = mime.getType(file) || "application/octet-stream";
+
     res.setHeader("Content-Type", contentType);
     res.setHeader("Cache-Control", "public, max-age=3600");
 
-    // ✅ convert WebStream → Node.js stream
+    // ✅ konversi WebStream → Node Stream
     const nodeStream = Readable.fromWeb(ghRes.body);
     nodeStream.pipe(res);
   } catch (err) {
