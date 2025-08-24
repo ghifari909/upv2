@@ -1,11 +1,12 @@
 // pages/api/preview.js
 export const config = {
   api: {
-    bodyParser: false, // kita proxy stream, bukan JSON
+    bodyParser: false,
   },
 };
 
-import mime from "mime"; // sudah ada di package.json
+import mime from "mime";
+import { Readable } from "stream";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -28,14 +29,13 @@ export default async function handler(req, res) {
       return res.status(ghRes.status).json({ error: "File not found di GitHub" });
     }
 
-    // deteksi content-type pakai mime
     const contentType = mime.getType(file) || "application/octet-stream";
-
     res.setHeader("Content-Type", contentType);
     res.setHeader("Cache-Control", "public, max-age=3600");
 
-    // pipe stream dari GitHub ke client
-    ghRes.body.pipe(res);
+    // ✅ convert WebStream → Node.js stream
+    const nodeStream = Readable.fromWeb(ghRes.body);
+    nodeStream.pipe(res);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
