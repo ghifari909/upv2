@@ -43,7 +43,7 @@ export default function Home() {
       name: data.file,
       type: getFileType(file.name),
       size: formatFileSize(file.size),
-      url: data.url, // absolute URL: https://upv2.vercel.app/api/preview?file=...
+      url: data.url, // sekarang absolute: https://upv2.vercel.app/api/preview?file=xxx
       commit: data.commit?.sha?.slice(0, 7) || "-",
     };
 
