@@ -63,14 +63,17 @@ export default async function handler(req, res) {
     const result = await ghRes.json();
 
     if (result?.content?.path) {
-      // 🔥 bedanya di sini:
-      // kita kasih URL ke endpoint /api/preview?file=... milik app sendiri
-      const previewUrl = `/api/preview?file=${encodeURIComponent(shortName)}`;
+      // base URL → gunakan NEXT_PUBLIC_BASE_URL atau VERCEL_URL
+      const baseUrl =
+        process.env.NEXT_PUBLIC_BASE_URL ||
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
+      const previewUrl = `${baseUrl}/api/preview?file=${encodeURIComponent(shortName)}`;
 
       return res.status(200).json({
         commit: result.commit,
         file: shortName,
-        url: previewUrl, // link rapi domain kamu
+        url: previewUrl, // absolute URL
       });
     }
 
