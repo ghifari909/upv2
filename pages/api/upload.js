@@ -1,7 +1,7 @@
 // pages/api/upload.js
 export const config = {
   api: {
-    bodyParser: { sizeLimit: "10mb" }, // Vercel serverless limit
+    bodyParser: { sizeLimit: "10mb" }, // sesuai limit Vercel
   },
 };
 
@@ -22,8 +22,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "filename dan content wajib" });
     }
 
-    const repo = process.env.GITHUB_REPO;    // format: userOrOrg/repoName
-    const dir  = process.env.UPLOADS_DIR || "uploads";
+    const repo  = process.env.GITHUB_REPO;
+    const dir   = process.env.UPLOADS_DIR || "uploads";
     const token = process.env.GITHUB_TOKEN;
 
     if (!repo || !token) {
@@ -36,7 +36,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // pastikan base64
+    // validasi base64
     let base64Content;
     try {
       Buffer.from(content, "base64");
@@ -61,20 +61,21 @@ export default async function handler(req, res) {
     });
 
     const result = await ghRes.json();
-    // console.log("GitHub response:", result);
 
     if (result?.content?.path) {
-      const rawUrl = `https://raw.githubusercontent.com/${repo}/main/${dir}/${shortName}`;
+      // 🔥 bedanya di sini:
+      // kita kasih URL ke endpoint /api/preview?file=... milik app sendiri
+      const previewUrl = `/api/preview?file=${encodeURIComponent(shortName)}`;
+
       return res.status(200).json({
         commit: result.commit,
         file: shortName,
-        rawUrl,
+        url: previewUrl, // link rapi domain kamu
       });
     }
 
     return res.status(500).json({ error: "Upload gagal", detail: result });
   } catch (err) {
-    // console.error("Upload error:", err);
     return res.status(500).json({ error: err.message });
   }
 }
