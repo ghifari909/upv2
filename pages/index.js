@@ -12,62 +12,51 @@ export default function Home() {
   // NOTE: baseUrl tidak diperlukan lagi, kita langsung pakai rawUrl dari API
 
   async function uploadFile(file) {
-    const asDataURL = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = e => resolve(e.target.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
+  const asDataURL = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  const base64 = asDataURL.split(",")[1];
+
+  setUploading(true);
+  setUploadProgress(0);
+
+  try {
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: file.name,
+        content: base64,
+      }),
     });
-    const base64 = asDataURL.split(",")[1];
 
-    setUploading(true);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error || "Upload gagal");
+
+    setUploadProgress(100);
+    await new Promise(resolve => setTimeout(resolve, 400));
+
+    const uploadedFile = {
+      name: data.file,
+      type: getFileType(file.name),
+      size: formatFileSize(file.size),
+      url: data.url, // 🔥 sekarang hasil /api/preview?file=...
+      commit: data.commit?.sha?.slice(0, 7) || "-",
+    };
+
+    setUploadedFiles(prev => [...prev, uploadedFile]);
+    return uploadedFile;
+  } catch (e) {
+    alert(`❌ Gagal upload: ${e.message}`);
+    throw e;
+  } finally {
+    setUploading(false);
     setUploadProgress(0);
-
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 90) {
-          clearInterval(interval);
-          return prev;
-        }
-        return prev + 10;
-      });
-    }, 200);
-
-    try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filename: file.name,
-          content: base64,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Upload gagal");
-
-      setUploadProgress(100);
-      await new Promise(resolve => setTimeout(resolve, 400));
-
-      const uploadedFile = {
-        name: data.file,
-        type: getFileType(file.name),
-        size: formatFileSize(file.size),
-        url: data.rawUrl || "", // ← langsung URL RAW
-        commit: data.commit?.sha?.slice(0, 7) || "-",
-      };
-
-      setUploadedFiles(prev => [...prev, uploadedFile]);
-      return uploadedFile;
-    } catch (e) {
-      alert(`❌ Gagal upload: ${e.message}`);
-      throw e;
-    } finally {
-      clearInterval(interval);
-      setUploading(false);
-      setUploadProgress(0);
-    }
   }
+}
 
   function getFileType(filename) {
     const extension = filename.split(".").pop().toLowerCase();
