@@ -1,10 +1,10 @@
+// pages/api/upload.js
 export const config = {
   api: {
-    bodyParser: { sizeLimit: "10mb" }, // jangan terlalu besar, Vercel limit serverless ±10MB
+    bodyParser: { sizeLimit: "10mb" }, // Vercel serverless limit
   },
 };
 
-// 👉 fungsi bikin nama random
 function randomName(originalName) {
   const ext = originalName.includes(".") ? "." + originalName.split(".").pop() : "";
   const randomStr = Math.random().toString(36).substring(2, 10);
@@ -17,34 +17,41 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { filename, content } = req.body;
-
+    const { filename, content } = req.body || {};
     if (!filename || !content) {
       return res.status(400).json({ error: "filename dan content wajib" });
     }
 
-    // pastikan content base64
+    const repo = process.env.GITHUB_REPO;    // format: userOrOrg/repoName
+    const dir  = process.env.UPLOADS_DIR || "uploads";
+    const token = process.env.GITHUB_TOKEN;
+
+    if (!repo || !token) {
+      return res.status(500).json({
+        error: "Konfigurasi ENV belum lengkap",
+        detail: {
+          need: ["GITHUB_REPO", "GITHUB_TOKEN"],
+          optional: ["UPLOADS_DIR"],
+        },
+      });
+    }
+
+    // pastikan base64
     let base64Content;
     try {
-      // kalau user sudah kirim base64, validasi aja
       Buffer.from(content, "base64");
       base64Content = content;
-    } catch (e) {
-      // kalau bukan base64 → convert
+    } catch {
       base64Content = Buffer.from(content).toString("base64");
     }
 
-    const repo = process.env.GITHUB_REPO; // jangan pake NEXT_PUBLIC
-    const dir = process.env.UPLOADS_DIR || "uploads";
     const shortName = randomName(filename);
-
-    const githubToken = process.env.GITHUB_TOKEN;
     const url = `https://api.github.com/repos/${repo}/contents/${dir}/${shortName}`;
 
-    const response = await fetch(url, {
+    const ghRes = await fetch(url, {
       method: "PUT",
       headers: {
-        Authorization: `token ${githubToken}`,
+        Authorization: `token ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -53,19 +60,21 @@ export default async function handler(req, res) {
       }),
     });
 
-    const result = await response.json();
-    console.log("GitHub response:", result); // 🔎 debug di Vercel Logs
+    const result = await ghRes.json();
+    // console.log("GitHub response:", result);
 
     if (result?.content?.path) {
+      const rawUrl = `https://raw.githubusercontent.com/${repo}/main/${dir}/${shortName}`;
       return res.status(200).json({
         commit: result.commit,
         file: shortName,
+        rawUrl,
       });
-    } else {
-      return res.status(500).json({ error: "Upload gagal", detail: result });
     }
+
+    return res.status(500).json({ error: "Upload gagal", detail: result });
   } catch (err) {
-    console.error("Upload error:", err);
+    // console.error("Upload error:", err);
     return res.status(500).json({ error: err.message });
   }
 }
