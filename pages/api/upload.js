@@ -1,7 +1,7 @@
 // pages/api/upload.js
 export const config = {
   api: {
-    bodyParser: { sizeLimit: "10mb" }, // sesuai limit Vercel
+    bodyParser: { sizeLimit: "10mb" }, // limit Vercel
   },
 };
 
@@ -63,17 +63,16 @@ export default async function handler(req, res) {
     const result = await ghRes.json();
 
     if (result?.content?.path) {
-      // base URL → gunakan NEXT_PUBLIC_BASE_URL atau VERCEL_URL
+      // 🔥 gunakan domain fix, bukan VERCEL_URL random
       const baseUrl =
-        process.env.NEXT_PUBLIC_BASE_URL ||
-        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+        process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
       const previewUrl = `${baseUrl}/api/preview?file=${encodeURIComponent(shortName)}`;
 
       return res.status(200).json({
         commit: result.commit,
         file: shortName,
-        url: previewUrl, // absolute URL
+        url: previewUrl, // absolute URL: https://upv2.vercel.app/api/preview?file=xxx
       });
     }
 
