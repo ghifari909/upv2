@@ -44,11 +44,11 @@ export default function Home() {
       const fileUrl = `${baseUrl}/api/cdn?file=${data.public_id}.${data.format}`;
 
       const fileData = {
-        name: file.name,
-        type: getFileType(file.name),
-        size: formatFileSize(file.size),
-        url: fileUrl,
-      };
+  name: file.name,
+  size: formatFileSize(file.size),
+  url: `${baseUrl}/api/cdn?file=${data.public_id}.${data.format}&type=${data.resource_type}`, // ← simpan type
+  resource_type: data.resource_type,
+};o
 
       setUploadedFiles(prev => [...prev, fileData]);
     } catch (e) {
