@@ -16,58 +16,36 @@ export default function Home() {
   setUploadProgress(0);
 
   try {
-    if (file.size <= 10 * 1024 * 1024) {
-      // 🚀 Upload kecil → GitHub
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = e => resolve(e.target.result.split(",")[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append(
+      "upload_preset",
+      process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+    );
 
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, content: base64 }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Upload GitHub gagal");
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
+      { method: "POST", body: formData }
+    );
 
-      return {
-        name: file.name,
-        type: getFileType(file.name),
-        size: formatFileSize(file.size),
-        url: data.url,
-        provider: "github",
-      };
-    } else {
-      // 🚀 Upload besar → Cloudinary
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append(
-        "upload_preset",
-        process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
-      );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || "Upload Cloudinary gagal");
 
-      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
-        { method: "POST", body: formData }
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Upload Cloudinary gagal");
+    // kalau mau langsung pakai link cloudinary asli:
+    // const fileUrl = data.secure_url;
 
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-      const cdnUrl = `${baseUrl}/api/cdn?file=${data.public_id}.${data.format}`;
+    // kalau mau tetap clean pakai domain kamu:
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const fileUrl = `${baseUrl}/api/cdn?file=${data.public_id}.${data.format}`;
 
-      return {
-        name: file.name,
-        type: getFileType(file.name),
-        size: formatFileSize(file.size),
-        url: cdnUrl, // ✅ clean URL
-        provider: "cloudinary",
-      };
-    }
+    return {
+      name: file.name,
+      type: getFileType(file.name),
+      size: formatFileSize(file.size),
+      url: fileUrl,
+      provider: "cloudinary",
+    };
   } catch (e) {
     alert(`❌ Gagal upload: ${e.message}`);
     throw e;
