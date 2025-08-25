@@ -12,43 +12,62 @@ export default function Home() {
   // NOTE: baseUrl tidak diperlukan lagi, kita langsung pakai rawUrl dari API
 
   async function uploadFile(file) {
-  const asDataURL = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = e => resolve(e.target.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-  const base64 = asDataURL.split(",")[1];
-
   setUploading(true);
   setUploadProgress(0);
 
   try {
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        filename: file.name,
-        content: base64,
-      }),
-    });
+    if (file.size <= 10 * 1024 * 1024) {
+      // 🚀 Upload kecil → GitHub
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result.split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data?.error || "Upload gagal");
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, content: base64 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Upload GitHub gagal");
 
-    setUploadProgress(100);
-    await new Promise(resolve => setTimeout(resolve, 400));
+      return {
+        name: file.name,
+        type: getFileType(file.name),
+        size: formatFileSize(file.size),
+        url: data.url,
+        provider: "github",
+      };
+    } else {
+      // 🚀 Upload besar → Cloudinary
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append(
+        "upload_preset",
+        process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+      );
 
-    const uploadedFile = {
-      name: data.file,
-      type: getFileType(file.name),
-      size: formatFileSize(file.size),
-      url: data.url, // sekarang absolute: https://upv2.vercel.app/api/preview?file=xxx
-      commit: data.commit?.sha?.slice(0, 7) || "-",
-    };
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
+        { method: "POST", body: formData }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Upload Cloudinary gagal");
 
-    setUploadedFiles(prev => [...prev, uploadedFile]);
-    return uploadedFile;
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+      const cdnUrl = `${baseUrl}/api/cdn?file=${data.public_id}.${data.format}`;
+
+      return {
+        name: file.name,
+        type: getFileType(file.name),
+        size: formatFileSize(file.size),
+        url: cdnUrl, // ✅ clean URL
+        provider: "cloudinary",
+      };
+    }
   } catch (e) {
     alert(`❌ Gagal upload: ${e.message}`);
     throw e;
@@ -57,7 +76,6 @@ export default function Home() {
     setUploadProgress(0);
   }
 }
-
   function getFileType(filename) {
     const extension = filename.split(".").pop().toLowerCase();
     if (["jpg","jpeg","png","gif","bmp","webp","svg"].includes(extension)) return "Gambar";
