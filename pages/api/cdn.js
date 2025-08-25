@@ -1,14 +1,11 @@
-// pages/api/cdn.js
 export default async function handler(req, res) {
   const { file } = req.query;
   if (!file) return res.status(400).json({ error: "file query wajib" });
 
-  // contoh: abc123.mp4
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
   const publicId = file.split(".")[0];
   const ext = file.split(".")[1] || "mp4";
 
-  // tipe berdasarkan ext
   const videoExt = ["mp4", "mov", "avi", "mkv"];
   const imageExt = ["jpg", "jpeg", "png", "gif", "webp"];
   const type = videoExt.includes(ext) ? "video" : imageExt.includes(ext) ? "image" : "raw";
