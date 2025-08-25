@@ -6,49 +6,47 @@ export default function Home() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [copiedIndex, setCopiedIndex] = useState(null);
 
+  // format ukuran file
   function formatFileSize(bytes) {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
+  // deteksi type file
   function getFileType(name) {
     const ext = name.split(".").pop().toLowerCase();
-    if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) return "image";
-    if (["mp4", "mov", "avi", "mkv"].includes(ext)) return "video";
-    if (["mp3", "wav", "ogg"].includes(ext)) return "audio";
+    if (["jpg","jpeg","png","gif","webp"].includes(ext)) return "image";
+    if (["mp4","mov","avi","mkv","webm"].includes(ext)) return "video";
+    if (["mp3","wav","ogg"].includes(ext)) return "audio";
     return "file";
   }
 
   async function uploadFile(file) {
     setUploading(true);
-
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append(
-        "upload_preset",
-        process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
-      );
+      formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET);
 
       const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
-        { method: "POST", body: formData }
-      );
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
+        method: "POST",
+        body: formData,
+      });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Upload Cloudinary gagal");
+      if (!res.ok) throw new Error(data.error?.message || "Upload gagal");
 
-      // URL clean via API
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-      const fileUrl = `${baseUrl}/api/cdn?file=${data.public_id}.${data.format}`;
+      // buat link CDN custom
+      const cdnDomain = process.env.NEXT_PUBLIC_CDN_DOMAIN || "https://cdn.upv2.app";
+      const fileUrl = `${cdnDomain}/${data.public_id}.${data.format}`;
 
       const fileData = {
-  name: file.name,
-  size: formatFileSize(file.size),
-  url: `${baseUrl}/api/cdn?file=${data.public_id}.${data.format}&type=${data.resource_type}`, // ← simpan type
-  resource_type: data.resource_type,
-};o
+        name: file.name,
+        type: getFileType(file.name),
+        size: formatFileSize(file.size),
+        url: fileUrl,
+      };
 
       setUploadedFiles(prev => [...prev, fileData]);
     } catch (e) {
@@ -71,13 +69,15 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-6">
-      <h1 className="text-3xl font-bold mb-6">Uplinx – Upload to Cloudinary</h1>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 flex flex-col items-center py-10 px-4">
+      <h1 className="text-4xl font-extrabold text-indigo-700 mb-4">Uplinx</h1>
+      <p className="text-gray-600 mb-8">Upload & share your files instantly 🚀</p>
 
+      {/* tombol upload */}
       <button
-        className="px-4 py-2 bg-blue-600 text-white rounded-lg"
         onClick={() => fileInputRef.current.click()}
         disabled={uploading}
+        className="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow hover:bg-indigo-700 transition disabled:opacity-50"
       >
         {uploading ? "⏳ Uploading..." : "Pilih File"}
       </button>
@@ -89,55 +89,65 @@ export default function Home() {
         multiple
       />
 
-      <div className="mt-6 w-full max-w-lg">
+      {/* daftar file */}
+      <div className="mt-10 w-full max-w-2xl space-y-6">
         {uploadedFiles.map((f, idx) => (
-          <div
-            key={idx}
-            className="bg-white shadow rounded-lg p-4 mb-3 flex flex-col"
-          >
-            <span className="font-medium">{f.name}</span>
-            <span className="text-sm text-gray-500">{f.size}</span>
+          <div key={idx} className="bg-white rounded-xl shadow p-5">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="font-semibold text-lg">{f.name}</h2>
+                <p className="text-sm text-gray-500">{f.size}</p>
+              </div>
+              <button
+                onClick={() => copyToClipboard(f.url, idx)}
+                className="px-3 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200 transition"
+              >
+                {copiedIndex === idx ? "✅ Disalin" : "Salin URL"}
+              </button>
+            </div>
 
-            {/* ✅ Preview sesuai tipe file */}
-            {f.type === "image" && (
-              <img
-                src={f.url}
-                alt={f.name}
-                className="mt-2 rounded-lg max-h-48 object-contain"
-              />
-            )}
+            {/* preview */}
+            <div className="mt-4">
+              {f.type === "image" && (
+                <img
+                  src={f.url}
+                  alt={f.name}
+                  className="rounded-lg max-h-64 object-contain mx-auto"
+                />
+              )}
+              {f.type === "audio" && (
+                <audio controls className="w-full mt-2">
+                  <source src={f.url} type="audio/mpeg" />
+                </audio>
+              )}
+              {f.type === "video" && (
+                <video controls className="w-full mt-2 rounded-lg max-h-72">
+                  <source src={f.url} type="video/mp4" />
+                </video>
+              )}
+              {f.type === "file" && (
+                <a
+                  href={f.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 break-all"
+                >
+                  {f.url}
+                </a>
+              )}
+            </div>
 
-            {f.type === "audio" && (
-              <audio controls className="mt-2 w-full">
-                <source src={f.url} type="audio/mpeg" />
-                Browser tidak support audio player
-              </audio>
-            )}
-
-            {f.type === "video" && (
-              <video controls className="mt-2 w-full rounded-lg max-h-64">
-                <source src={f.url} type="video/mp4" />
-                Browser tidak support video player
-              </video>
-            )}
-
-            {f.type === "file" && (
+            {/* url link */}
+            <div className="mt-3">
               <a
                 href={f.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 break-all mt-1"
+                className="text-sm text-gray-700 underline break-all"
               >
                 {f.url}
               </a>
-            )}
-
-            <button
-              onClick={() => copyToClipboard(f.url, idx)}
-              className="mt-2 px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
-            >
-              {copiedIndex === idx ? "✅ Disalin!" : "Salin URL"}
-            </button>
+            </div>
           </div>
         ))}
       </div>
