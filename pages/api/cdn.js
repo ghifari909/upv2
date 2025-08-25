@@ -4,18 +4,10 @@ export default async function handler(req, res) {
 
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
   const publicId = file.split(".")[0];
-  const ext = file.split(".")[1]?.toLowerCase() || "";
+  const ext = file.split(".")[1] || "";
 
-  // default fallback
-  let resourceType = type || "raw";
-
-  // kalau user gak kirim type, baru kita tebak
-  if (!type) {
-    const imageExt = ["jpg", "jpeg", "png", "gif", "webp"];
-    const videoExt = ["mp4", "mov", "avi", "mkv", "webm", "mp3", "wav", "ogg"];
-    if (imageExt.includes(ext)) resourceType = "image";
-    else if (videoExt.includes(ext)) resourceType = "video";
-  }
+  // pake resource_type asli dari Cloudinary
+  const resourceType = type || "raw";
 
   const url = `https://res.cloudinary.com/${cloudName}/${resourceType}/upload/${publicId}.${ext}`;
   return res.redirect(302, url);
