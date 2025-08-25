@@ -37,9 +37,9 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || "Upload gagal");
 
-      // buat link CDN custom
+      // buat link CDN custom -> pakai public_id + format
       const cdnDomain = process.env.NEXT_PUBLIC_CDN_DOMAIN || "https://cdn.upv2.app";
-      const fileUrl = `${cdnDomain}/${data.public_id}.${data.format}`;
+      const fileUrl = `${cdnDomain}/up/${data.public_id}.${data.format}`;
 
       const fileData = {
         name: file.name,
